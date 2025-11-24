@@ -1,4 +1,11 @@
 {
+  "name": "fuseiris-root",
+  "private": true,
+  "scripts": {
+    "dev": "cd my-react-app ; npm start",
+    "build": "cd my-react-app ; npm install --no-audit --no-fund ; npm run build",
+    "vercel-build": "npm run build"
+  },
   "dependencies": {
     "lucide-react": "^0.554.0"
   }
