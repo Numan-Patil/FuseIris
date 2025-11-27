@@ -573,7 +573,7 @@ const ContextVisualizer = ({ palette, onClose, onExport }) => {
   );
 };
 
-const PaletteCard = ({ palette, onDragStart, onDrop, isDraggingOver, copyColor, onLike, onView, onDelete, onTouchStart, onTouchMove, onTouchEnd, breedingSource, onBreedingAction }) => {
+const PaletteCard = ({ palette, onDragStart, onDrop, isDraggingOver, copyColor, onLike, onView, onDelete, breedingSource, onBreedingAction }) => {
   const [copiedIdx, setCopiedIdx] = useState(null);
   const [isLiked, setIsLiked] = useState(false);
   
@@ -612,14 +612,10 @@ const PaletteCard = ({ palette, onDragStart, onDrop, isDraggingOver, copyColor, 
       onDrop={(e) => onDrop(e, palette)}
       data-palette-id={palette.id}
     >
-      {/* Visual Header - Draggable on Touch */}
+      {/* Visual Header */}
       <div 
         className="h-44 w-full flex relative cursor-pointer" 
         onClick={() => onView(palette)}
-        onTouchStart={(e) => onTouchStart(e, palette)}
-        onTouchMove={onTouchMove}
-        onTouchEnd={onTouchEnd}
-        style={{ touchAction: 'none' }} // Prevents scrolling when interacting with the header
       >
           
          {/* Drop Zone Overlay */}
@@ -858,50 +854,6 @@ export default function App() {
     if (draggedPalette && draggedPalette.id !== targetPalette.id) {
         setDropTargetId(targetPalette.id);
     }
-  };
-
-  // Touch Handlers
-  const handleTouchStart = (e, palette) => {
-    // Only capture 1 finger touches to avoid gesture conflicts
-    if (e.touches.length === 1) {
-        setDraggedPalette(palette);
-    }
-  };
-
-  const handleTouchMove = (e) => {
-    // Simple drag simulation
-    if (!draggedPalette) return;
-    
-    const touch = e.touches[0];
-    const target = document.elementFromPoint(touch.clientX, touch.clientY);
-    
-    if (target) {
-        // Look for the palette container
-        const card = target.closest('[data-palette-id]');
-        if (card) {
-            const id = card.getAttribute('data-palette-id');
-            // Ensure we aren't hovering over ourselves
-            if (id && id !== draggedPalette.id) {
-                setDropTargetId(id);
-            } else {
-                setDropTargetId(null);
-            }
-        } else {
-            setDropTargetId(null);
-        }
-    }
-  };
-
-  const handleTouchEnd = (e) => {
-      if (draggedPalette && dropTargetId) {
-          const targetPalette = palettes.find(p => p.id === dropTargetId);
-          if (targetPalette) {
-              processBreeding(draggedPalette, targetPalette);
-          }
-      }
-      // Reset everything
-      setDraggedPalette(null);
-      setDropTargetId(null);
   };
 
   // Selection-based Breeding Handler
@@ -1182,9 +1134,6 @@ export default function App() {
                                 onLike={handleLike}
                                 onView={setViewingPalette}
                                 onDelete={handleDelete}
-                                onTouchStart={handleTouchStart}
-                                onTouchMove={handleTouchMove}
-                                onTouchEnd={handleTouchEnd}
                                 breedingSource={breedingSource}
                                 onBreedingAction={handleBreedingAction}
                             />
