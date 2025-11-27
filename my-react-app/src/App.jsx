@@ -573,7 +573,7 @@ const ContextVisualizer = ({ palette, onClose, onExport }) => {
   );
 };
 
-const PaletteCard = ({ palette, onDragStart, onDrop, isDraggingOver, copyColor, onLike, onView, onDelete, index }) => {
+const PaletteCard = ({ palette, onDragStart, onDrop, isDraggingOver, copyColor, onLike, onView, onDelete, onTouchStart, onTouchMove, onTouchEnd }) => {
   const [copiedIdx, setCopiedIdx] = useState(null);
   const [isLiked, setIsLiked] = useState(false);
   
@@ -602,13 +602,21 @@ const PaletteCard = ({ palette, onDragStart, onDrop, isDraggingOver, copyColor, 
       onDragStart={(e) => onDragStart(e, palette)}
       onDragOver={(e) => e.preventDefault()}
       onDrop={(e) => onDrop(e, palette)}
+      data-palette-id={palette.id}
     >
-      {/* Visual Header */}
-      <div className="h-44 w-full flex relative cursor-pointer" onClick={() => onView(palette)}>
+      {/* Visual Header - Draggable on Touch */}
+      <div 
+        className="h-44 w-full flex relative cursor-pointer" 
+        onClick={() => onView(palette)}
+        onTouchStart={(e) => onTouchStart(e, palette)}
+        onTouchMove={onTouchMove}
+        onTouchEnd={onTouchEnd}
+        style={{ touchAction: 'none' }} // Prevents scrolling when interacting with the header
+      >
           
          {/* Drop Zone Overlay */}
          {isDraggingOver && (
-            <div className="absolute inset-0 z-20 bg-indigo-600/90 backdrop-blur-sm flex flex-col items-center justify-center text-white animate-pulse">
+            <div className="absolute inset-0 z-20 bg-indigo-600/90 backdrop-blur-sm flex flex-col items-center justify-center text-white animate-pulse pointer-events-none">
               <RefreshCw size={32} className="mb-2 animate-spin" />
               <span className="font-bold tracking-wider">BREED PALETTES</span>
             </div>
@@ -668,7 +676,7 @@ const PaletteCard = ({ palette, onDragStart, onDrop, isDraggingOver, copyColor, 
         </div>
       </div>
 
-      {/* Card Body */}
+      {/* Card Body - Scrollable Area */}
       <div className="p-4 flex-1 flex flex-col justify-between">
         <div className="flex items-start justify-between mb-3">
             <div>
@@ -815,15 +823,55 @@ export default function App() {
     }
   };
 
-  const handleDrop = (e, targetPalette) => {
-    e.preventDefault();
-    setDropTargetId(null);
-    if (!draggedPalette || draggedPalette.id === targetPalette.id) return;
+  // Touch Handlers
+  const handleTouchStart = (e, palette) => {
+    // Only capture 1 finger touches to avoid gesture conflicts
+    if (e.touches.length === 1) {
+        setDraggedPalette(palette);
+    }
+  };
 
+  const handleTouchMove = (e) => {
+    // Simple drag simulation
+    if (!draggedPalette) return;
+    
+    const touch = e.touches[0];
+    const target = document.elementFromPoint(touch.clientX, touch.clientY);
+    
+    if (target) {
+        // Look for the palette container
+        const card = target.closest('[data-palette-id]');
+        if (card) {
+            const id = card.getAttribute('data-palette-id');
+            // Ensure we aren't hovering over ourselves
+            if (id && id !== draggedPalette.id) {
+                setDropTargetId(id);
+            } else {
+                setDropTargetId(null);
+            }
+        } else {
+            setDropTargetId(null);
+        }
+    }
+  };
+
+  const handleTouchEnd = (e) => {
+      if (draggedPalette && dropTargetId) {
+          const targetPalette = palettes.find(p => p.id === dropTargetId);
+          if (targetPalette) {
+              processBreeding(draggedPalette, targetPalette);
+          }
+      }
+      // Reset everything
+      setDraggedPalette(null);
+      setDropTargetId(null);
+  };
+
+  const processBreeding = (parent1, parent2) => {
     // Genetic Algorithm with Uniqueness Check
     const generateChildGenome = () => {
-        return draggedPalette.colors.map((c1, i) => {
-           const c2 = targetPalette.colors[i];
+        return parent1.colors.map((c1, i) => {
+           const c2 = parent2.colors[i];
            // Increased Entropy: 0.1 to 0.9 range allows for children that lean heavily towards one parent
            // This ensures that mixing A + B multiple times yields different results (siblings)
            const weight = 0.1 + (Math.random() * 0.8); 
@@ -846,8 +894,8 @@ export default function App() {
     // ---------------------------------------------------------
     // NEW: Unique Name Generation Logic
     // ---------------------------------------------------------
-    const p1Words = draggedPalette.name.split(' ');
-    const p2Words = targetPalette.name.split(' ');
+    const p1Words = parent1.name.split(' ');
+    const p2Words = parent2.name.split(' ');
     let baseName = `${p1Words[0]} ${p2Words[p2Words.length - 1] || 'Fusion'}`;
     
     let finalName = baseName;
@@ -873,8 +921,8 @@ export default function App() {
 
     // Start Breeding Animation
     setBreedingData({
-        parent1: draggedPalette,
-        parent2: targetPalette,
+        parent1: parent1,
+        parent2: parent2,
         child: newPalette,
         stage: 'mixing'
     });
@@ -886,10 +934,18 @@ export default function App() {
     }, 2000); // Slightly faster mix for better UX
 
     setTimeout(() => {
-        setPalettes([newPalette, ...palettes]);
+        setPalettes(prev => [newPalette, ...prev]);
         setBreedingData(null);
         setToastMsg(`🧬 Successfully bred "${newPalette.name}"!`);
     }, 5500); // Give user enough time to admire the new card
+  };
+
+  const handleDrop = (e, targetPalette) => {
+    e.preventDefault();
+    setDropTargetId(null);
+    if (!draggedPalette || draggedPalette.id === targetPalette.id) return;
+    
+    processBreeding(draggedPalette, targetPalette);
   };
 
   const handleLike = (id) => {
@@ -1073,6 +1129,9 @@ export default function App() {
                                 onLike={handleLike}
                                 onView={setViewingPalette}
                                 onDelete={handleDelete}
+                                onTouchStart={handleTouchStart}
+                                onTouchMove={handleTouchMove}
+                                onTouchEnd={handleTouchEnd}
                             />
                         </div>
                     </RevealOnScroll>
