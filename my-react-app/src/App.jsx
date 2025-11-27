@@ -573,12 +573,16 @@ const ContextVisualizer = ({ palette, onClose, onExport }) => {
   );
 };
 
-const PaletteCard = ({ palette, onDragStart, onDrop, isDraggingOver, copyColor, onLike, onView, onDelete, onTouchStart, onTouchMove, onTouchEnd }) => {
+const PaletteCard = ({ palette, onDragStart, onDrop, isDraggingOver, copyColor, onLike, onView, onDelete, onTouchStart, onTouchMove, onTouchEnd, breedingSource, onBreedingAction }) => {
   const [copiedIdx, setCopiedIdx] = useState(null);
   const [isLiked, setIsLiked] = useState(false);
   
   // Check if palette is custom or mixed
   const isCustom = palette.tags && (palette.tags.includes('custom') || palette.tags.includes('mixed'));
+  
+  // Breeding Selection State Helpers
+  const isSource = breedingSource && breedingSource.id === palette.id;
+  const isTargetCandidate = breedingSource && !isSource;
 
   const handleCopy = (e, color, idx) => {
       e.stopPropagation();
@@ -597,7 +601,11 @@ const PaletteCard = ({ palette, onDragStart, onDrop, isDraggingOver, copyColor, 
 
   return (
     <div 
-      className={`group relative bg-white dark:bg-gray-800 rounded-2xl transition-all duration-500 ease-out-back ${isDraggingOver ? 'ring-4 ring-indigo-500/20 scale-105 z-10' : 'hover:-translate-y-1'} shadow-sm hover:shadow-xl border border-gray-100 dark:border-gray-700 overflow-hidden h-full flex flex-col`}
+      className={`group relative bg-white dark:bg-gray-800 rounded-2xl transition-all duration-500 ease-out-back 
+        ${isDraggingOver ? 'ring-4 ring-indigo-500/20 scale-105 z-10' : 'hover:-translate-y-1'} 
+        ${isSource ? 'ring-4 ring-indigo-500 ring-offset-2 dark:ring-offset-gray-900 scale-105 z-20' : ''}
+        ${isTargetCandidate ? 'cursor-crosshair' : ''}
+        shadow-sm hover:shadow-xl border border-gray-100 dark:border-gray-700 overflow-hidden h-full flex flex-col`}
       draggable="true"
       onDragStart={(e) => onDragStart(e, palette)}
       onDragOver={(e) => e.preventDefault()}
@@ -620,6 +628,15 @@ const PaletteCard = ({ palette, onDragStart, onDrop, isDraggingOver, copyColor, 
               <RefreshCw size={32} className="mb-2 animate-spin" />
               <span className="font-bold tracking-wider">BREED PALETTES</span>
             </div>
+         )}
+         
+         {/* Target Candidate Overlay (When one is selected) */}
+         {isTargetCandidate && !isDraggingOver && (
+             <div className="absolute inset-0 z-20 hover:bg-indigo-600/20 transition-colors flex items-center justify-center pointer-events-none opacity-0 group-hover:opacity-100">
+                 <div className="bg-indigo-600 text-white px-3 py-1 rounded-full text-xs font-bold shadow-lg transform scale-90 group-hover:scale-100 transition-transform">
+                     Click DNA to Fuse
+                 </div>
+             </div>
          )}
         
         {palette.colors.map((color, idx) => (
@@ -649,7 +666,26 @@ const PaletteCard = ({ palette, onDragStart, onDrop, isDraggingOver, copyColor, 
         ))}
 
         {/* Action Buttons Floating */}
-        <div className="absolute top-3 right-3 flex gap-2 opacity-0 group-hover:opacity-100 transition-all duration-300 transform translate-y-2 group-hover:translate-y-0">
+        <div className={`absolute top-3 right-3 flex gap-2 transition-all duration-300 transform ${breedingSource ? 'opacity-100 translate-y-0' : 'opacity-0 group-hover:opacity-100 translate-y-2 group-hover:translate-y-0'}`}>
+             
+             {/* DNA / Fusion Button */}
+             <button 
+                onClick={(e) => {
+                    e.stopPropagation();
+                    onBreedingAction(e, palette);
+                }}
+                className={`p-2 backdrop-blur-md rounded-full shadow-lg hover:scale-110 active:scale-95 transition-all
+                    ${isSource 
+                        ? 'bg-red-500 text-white hover:bg-red-600' 
+                        : isTargetCandidate 
+                            ? 'bg-indigo-600 text-white animate-pulse hover:animate-none' 
+                            : 'bg-white/90 dark:bg-black/60 text-gray-700 dark:text-white hover:text-indigo-500'
+                    }`}
+                title={isSource ? "Cancel Selection" : isTargetCandidate ? "Merge with Selected" : "Select to Fuse"}
+            >
+                {isSource ? <X size={16} /> : <Dna size={16} />}
+            </button>
+
              <button 
                 onClick={(e) => {
                     e.stopPropagation();
@@ -740,6 +776,7 @@ export default function App() {
   const [logoColor, setLogoColor] = useState(null);
   const [breedingData, setBreedingData] = useState(null);
   const [deletedPaletteData, setDeletedPaletteData] = useState(null);
+  const [breedingSource, setBreedingSource] = useState(null); // New state for selection-based fusing
   
   const resultsRef = useRef(null);
 
@@ -865,6 +902,22 @@ export default function App() {
       // Reset everything
       setDraggedPalette(null);
       setDropTargetId(null);
+  };
+
+  // Selection-based Breeding Handler
+  const handleBreedingAction = (e, palette) => {
+    e.stopPropagation();
+    if (breedingSource && breedingSource.id === palette.id) {
+        setBreedingSource(null); // Deselect
+    } else if (breedingSource) {
+        // We have a source, and we clicked another one -> Merge
+        processBreeding(breedingSource, palette);
+        setBreedingSource(null);
+    } else {
+        // Select as source
+        setBreedingSource(palette);
+        setToastMsg({ text: `Selected "${palette.name}". Scroll and select another to fuse!`, duration: 4000 });
+    }
   };
 
   const processBreeding = (parent1, parent2) => {
@@ -1132,6 +1185,8 @@ export default function App() {
                                 onTouchStart={handleTouchStart}
                                 onTouchMove={handleTouchMove}
                                 onTouchEnd={handleTouchEnd}
+                                breedingSource={breedingSource}
+                                onBreedingAction={handleBreedingAction}
                             />
                         </div>
                     </RevealOnScroll>
@@ -1165,6 +1220,22 @@ export default function App() {
                 <span className="text-xs mt-2 opacity-60">Define your own 4 colors</span>
             </button>
          </div>
+
+         {/* Floating Cancel Selection Bar */}
+         {breedingSource && (
+             <div className="fixed bottom-8 left-1/2 -translate-x-1/2 z-50 bg-indigo-900 text-white px-6 py-3 rounded-full shadow-2xl flex items-center gap-4 animate-bounce-in max-w-[90vw]">
+                 <div className="flex items-center gap-2">
+                     <Dna className="animate-spin-slow" size={18} />
+                     <span className="text-sm font-medium truncate max-w-[150px]">Fusing "{breedingSource.name}"</span>
+                 </div>
+                 <button 
+                    onClick={() => setBreedingSource(null)}
+                    className="bg-white/20 hover:bg-white/30 rounded-full p-1 transition-colors"
+                 >
+                     <X size={16} />
+                 </button>
+             </div>
+         )}
 
          {/* Footer */}
          <footer className="mt-16 mb-8 text-center">
