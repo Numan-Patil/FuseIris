@@ -236,6 +236,30 @@ const Toast = ({ message, onClose, action, duration = 3000 }) => {
   );
 };
 
+const RevealOnScroll = ({ children, index = 0 }) => {
+    const [isVisible, setIsVisible] = useState(false);
+    const ref = useRef(null);
+
+    useEffect(() => {
+        const observer = new IntersectionObserver(([entry]) => {
+            if (entry.isIntersecting) {
+                // Add staggered delay based on column index
+                setTimeout(() => setIsVisible(true), (index % 4) * 100); 
+                observer.disconnect();
+            }
+        }, { threshold: 0.1, rootMargin: '50px' });
+
+        if (ref.current) observer.observe(ref.current);
+        return () => observer.disconnect();
+    }, [index]);
+
+    return (
+        <div ref={ref} className={`transition-all duration-700 ease-out transform ${isVisible ? 'opacity-100 translate-y-0' : 'opacity-0 translate-y-12'}`}>
+            {children}
+        </div>
+    );
+};
+
 // IMPROVED SIMPLE BREEDING UI
 const BreedingOverlay = ({ data }) => {
     const { parent1, parent2, child, stage } = data;
@@ -573,8 +597,7 @@ const PaletteCard = ({ palette, onDragStart, onDrop, isDraggingOver, copyColor, 
 
   return (
     <div 
-      className={`group relative bg-white dark:bg-gray-800 rounded-2xl transition-all duration-500 ease-out-back ${isDraggingOver ? 'ring-4 ring-indigo-500/20 scale-105 z-10' : 'hover:-translate-y-1'} shadow-sm hover:shadow-xl border border-gray-100 dark:border-gray-700 overflow-hidden h-full flex flex-col animate-slide-up-fade`}
-      style={{ animationDelay: `${index * 50}ms`, animationFillMode: 'both' }}
+      className={`group relative bg-white dark:bg-gray-800 rounded-2xl transition-all duration-500 ease-out-back ${isDraggingOver ? 'ring-4 ring-indigo-500/20 scale-105 z-10' : 'hover:-translate-y-1'} shadow-sm hover:shadow-xl border border-gray-100 dark:border-gray-700 overflow-hidden h-full flex flex-col`}
       draggable="true"
       onDragStart={(e) => onDragStart(e, palette)}
       onDragOver={(e) => e.preventDefault()}
@@ -701,7 +724,10 @@ export default function App() {
   const [toastMsg, setToastMsg] = useState(null);
   const [viewingPalette, setViewingPalette] = useState(null);
   const [isCreating, setIsCreating] = useState(false);
-  const [darkMode, setDarkMode] = useState(false);
+  const [darkMode, setDarkMode] = useState(() => {
+    const saved = localStorage.getItem('fuseiris_dark_mode');
+    return saved ? JSON.parse(saved) : false;
+  });
   const [showIntro, setShowIntro] = useState(true);
   const [logoColor, setLogoColor] = useState(null);
   const [breedingData, setBreedingData] = useState(null);
@@ -715,6 +741,7 @@ export default function App() {
   }, [palettes]);
 
   useEffect(() => {
+    localStorage.setItem('fuseiris_dark_mode', JSON.stringify(darkMode));
     if (darkMode) {
       document.documentElement.classList.add('dark');
     } else {
@@ -911,10 +938,10 @@ export default function App() {
   };
 
   return (
-    <div className={`min-h-screen transition-colors duration-500 ${darkMode ? 'bg-[#0f1115] text-gray-100' : 'bg-slate-50 text-slate-900'} font-sans selection:bg-indigo-500 selection:text-white overflow-x-hidden`}>
+    <div className={`min-h-screen ${darkMode ? 'bg-[#0f1115] text-gray-100' : 'bg-slate-50 text-slate-900'} font-sans selection:bg-indigo-500 selection:text-white overflow-x-hidden`}>
       
       {/* Glass Navbar */}
-      <nav className="sticky top-0 z-40 bg-white/80 dark:bg-[#0f1115]/80 backdrop-blur-lg border-b border-gray-200/50 dark:border-gray-800/50 h-18 transition-all">
+      <nav className="sticky top-0 z-40 bg-white/80 dark:bg-[#0f1115]/80 backdrop-blur-lg border-b border-gray-200/50 dark:border-gray-800/50 h-18 transition-all duration-500 ease-in-out">
          <div className="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8 h-16 flex items-center justify-between">
             {/* Search Bar - Taking more space since logo is gone */}
             <div className="flex-1 max-w-lg relative group mr-4">
@@ -923,7 +950,7 @@ export default function App() {
                 </div>
                 <input
                     type="text"
-                    className="block w-full pl-10 pr-3 py-2 border border-gray-200 dark:border-gray-700 rounded-full leading-5 bg-gray-50 dark:bg-gray-800 text-gray-900 dark:text-gray-100 placeholder-gray-500 focus:outline-none focus:bg-white dark:focus:bg-gray-900 focus:ring-2 focus:ring-indigo-500/50 focus:border-indigo-500 sm:text-sm transition-all"
+                    className="block w-full pl-10 pr-3 py-2 border border-gray-200 dark:border-gray-700 rounded-full leading-5 bg-gray-50 dark:bg-gray-800 text-gray-900 dark:text-gray-100 placeholder-gray-500 focus:outline-none focus:bg-white dark:focus:bg-gray-900 focus:ring-2 focus:ring-indigo-500/50 focus:border-indigo-500 sm:text-sm transition-all duration-300"
                     placeholder="Search palettes, hex codes, or tags..."
                     value={searchQuery}
                     onChange={(e) => setSearchQuery(e.target.value)}
@@ -936,7 +963,7 @@ export default function App() {
                     <button 
                         key={link} 
                         onClick={() => setActiveFilter(link)}
-                        className={`px-4 py-2 text-sm font-medium rounded-lg transition-all active:scale-95 ${activeFilter === link ? 'text-indigo-600 dark:text-indigo-400 bg-indigo-50 dark:bg-indigo-900/20 shadow-sm' : 'text-gray-500 hover:text-gray-900 dark:hover:text-gray-200 hover:bg-gray-100 dark:hover:bg-gray-800'}`}
+                        className={`px-4 py-2 text-sm font-medium rounded-lg transition-all duration-300 active:scale-95 ${activeFilter === link ? 'text-indigo-600 dark:text-indigo-400 bg-indigo-50 dark:bg-indigo-900/20 shadow-sm' : 'text-gray-500 hover:text-gray-900 dark:hover:text-gray-200 hover:bg-gray-100 dark:hover:bg-gray-800'}`}
                     >
                         {link}
                     </button>
@@ -946,7 +973,7 @@ export default function App() {
             <div className="flex items-center gap-3">
                <button 
                   onClick={() => setDarkMode(!darkMode)}
-                  className="p-2.5 rounded-full hover:bg-gray-100 dark:hover:bg-gray-800 text-gray-600 dark:text-gray-400 transition-all hover:rotate-12 active:scale-90"
+                  className="p-2.5 rounded-full hover:bg-gray-100 dark:hover:bg-gray-800 text-gray-600 dark:text-gray-400 transition-all duration-500 hover:rotate-12 active:scale-90"
                 >
                   {darkMode ? <Sun size={20} /> : <Moon size={20} />}
                </button>
@@ -1030,24 +1057,25 @@ export default function App() {
          <div ref={resultsRef} className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-4 gap-8 pb-20">
             {filteredPalettes.length > 0 ? (
                 filteredPalettes.map((palette, index) => (
-                    <div 
-                        key={palette.id}
-                        onDragEnter={(e) => handleDragEnter(e, palette)}
-                        onDragLeave={() => {}}
-                        className="transform transition-all duration-300"
-                    >
-                        <PaletteCard 
-                            index={index}
-                            palette={palette}
-                            onDragStart={handleDragStart}
-                            onDrop={handleDrop}
-                            isDraggingOver={dropTargetId === palette.id}
-                            copyColor={handleCopy}
-                            onLike={handleLike}
-                            onView={setViewingPalette}
-                            onDelete={handleDelete}
-                        />
-                    </div>
+                    <RevealOnScroll key={palette.id} index={index}>
+                        <div 
+                            onDragEnter={(e) => handleDragEnter(e, palette)}
+                            onDragLeave={() => {}}
+                            className="transform transition-all duration-300 h-full"
+                        >
+                            <PaletteCard 
+                                index={index}
+                                palette={palette}
+                                onDragStart={handleDragStart}
+                                onDrop={handleDrop}
+                                isDraggingOver={dropTargetId === palette.id}
+                                copyColor={handleCopy}
+                                onLike={handleLike}
+                                onView={setViewingPalette}
+                                onDelete={handleDelete}
+                            />
+                        </div>
+                    </RevealOnScroll>
                 ))
             ) : (
                 <div className="col-span-full py-20 text-center opacity-60">
@@ -1118,6 +1146,22 @@ export default function App() {
 
       {/* Animations CSS */}
       <style jsx global>{`
+        :root {
+            --theme-transition: 0.5s cubic-bezier(0.4, 0, 0.2, 1);
+        }
+
+        html, body {
+            transition: background-color var(--theme-transition), color var(--theme-transition);
+            overflow-x: hidden;
+        }
+
+        /* Universal Theme Transition - Excludes transform/opacity to prevent glitching other animations */
+        *, *::before, *::after {
+            transition-property: background-color, border-color, text-decoration-color, fill, stroke, box-shadow;
+            transition-timing-function: cubic-bezier(0.4, 0, 0.2, 1);
+            transition-duration: 0.5s;
+        }
+
         /* Confetti Button Styles */
         .confetti-btn {
             position: relative;
@@ -1135,6 +1179,7 @@ export default function App() {
             pointer-events: none;
             z-index: -1;
             opacity: 0;
+            transition: none; /* Crucial to prevent global transition overriding burst */
         }
         .confetti-btn:hover::before {
             animation: confetti-burst-1 0.8s ease-out forwards;
