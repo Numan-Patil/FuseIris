@@ -1,5 +1,5 @@
 import React, { useState, useEffect, useMemo, useRef } from 'react';
-import { Heart, Copy, RefreshCw, X, Eye, Plus, Sun, Moon, ArrowRight, Sparkles, Zap, Palette, Share2, Download, Check, Sliders, Layout, ChevronRight, Search, Dna, ArrowDown } from 'lucide-react';
+import { Heart, Copy, RefreshCw, X, Eye, Plus, Sun, Moon, ArrowRight, Sparkles, Zap, Palette, Share2, Download, Check, Sliders, Layout, ChevronRight, Search, Dna, ArrowDown, Trash2, RotateCcw } from 'lucide-react';
 
 // --- Utility Functions ---
 
@@ -211,16 +211,27 @@ const INITIAL_PALETTES = [
 
 // --- Components ---
 
-const Toast = ({ message, onClose }) => {
+const Toast = ({ message, onClose, action, duration = 3000 }) => {
   useEffect(() => {
-    const timer = setTimeout(onClose, 3000);
+    const timer = setTimeout(onClose, duration);
     return () => clearTimeout(timer);
-  }, [onClose]);
+  }, [onClose, duration]);
 
   return (
-    <div className="fixed bottom-8 left-1/2 transform -translate-x-1/2 bg-gray-900/90 dark:bg-white/90 backdrop-blur-md text-white dark:text-gray-900 px-6 py-3 rounded-full shadow-2xl flex items-center gap-3 z-[60] animate-bounce-in border border-white/10 dark:border-gray-200/20">
-      <Sparkles size={16} className="text-yellow-400 dark:text-yellow-600 animate-pulse" />
-      <span className="font-medium text-sm">{message}</span>
+    <div className="fixed bottom-8 left-1/2 transform -translate-x-1/2 bg-gray-900/90 dark:bg-white/90 backdrop-blur-md text-white dark:text-gray-900 px-6 py-3 rounded-full shadow-2xl flex items-center gap-4 z-[60] animate-bounce-in border border-white/10 dark:border-gray-200/20">
+      <div className="flex items-center gap-3">
+        <Sparkles size={16} className="text-yellow-400 dark:text-yellow-600 animate-pulse" />
+        <span className="font-medium text-sm">{message}</span>
+      </div>
+      {action && (
+        <button 
+          onClick={action.onClick}
+          className="bg-white/20 hover:bg-white/30 dark:bg-black/10 dark:hover:bg-black/20 px-3 py-1 rounded-full text-xs font-bold uppercase tracking-wide transition-colors flex items-center gap-1.5"
+        >
+          {action.icon && <action.icon size={12} />}
+          {action.label}
+        </button>
+      )}
     </div>
   );
 };
@@ -538,9 +549,12 @@ const ContextVisualizer = ({ palette, onClose, onExport }) => {
   );
 };
 
-const PaletteCard = ({ palette, onDragStart, onDrop, isDraggingOver, copyColor, onLike, onView, index }) => {
+const PaletteCard = ({ palette, onDragStart, onDrop, isDraggingOver, copyColor, onLike, onView, onDelete, index }) => {
   const [copiedIdx, setCopiedIdx] = useState(null);
   const [isLiked, setIsLiked] = useState(false);
+  
+  // Check if palette is custom or mixed
+  const isCustom = palette.tags && (palette.tags.includes('custom') || palette.tags.includes('mixed'));
 
   const handleCopy = (e, color, idx) => {
       e.stopPropagation();
@@ -584,22 +598,22 @@ const PaletteCard = ({ palette, onDragStart, onDrop, isDraggingOver, copyColor, 
             style={{ backgroundColor: color }}
             onClick={(e) => handleCopy(e, color, idx)}
           >
-             {/* Interaction Overlay */}
-             <div className={`absolute inset-0 flex flex-col items-center justify-end pb-4 transition-all duration-300 ${copiedIdx === idx ? 'opacity-100 bg-black/20' : 'opacity-0 group-hover/color:opacity-100'}`}>
-                {copiedIdx === idx ? (
+              {/* Interaction Overlay */}
+              <div className={`absolute inset-0 flex flex-col items-center justify-end pb-4 transition-all duration-300 ${copiedIdx === idx ? 'opacity-100 bg-black/20' : 'opacity-0 group-hover/color:opacity-100'}`}>
+                 {copiedIdx === idx ? (
                     <div className="flex flex-col items-center animate-pop-in">
                         <Check size={24} className="text-white drop-shadow-md mb-1" />
                         <span className="text-[10px] font-bold text-white uppercase tracking-widest bg-black/30 px-2 py-0.5 rounded">COPIED</span>
                     </div>
-                ) : (
+                 ) : (
                     <>
                         <span className="text-[10px] uppercase font-bold tracking-widest bg-black/20 backdrop-blur-sm text-white px-2 py-1 rounded-lg transform translate-y-2 group-hover/color:translate-y-0 transition-transform shadow-sm">
                             {color}
                         </span>
                         <span className="mt-1 text-[8px] text-white/90 font-medium opacity-0 group-hover/color:opacity-100 transition-opacity delay-100">Click to Copy</span>
                     </>
-                )}
-             </div>
+                 )}
+              </div>
           </div>
         ))}
 
@@ -615,6 +629,19 @@ const PaletteCard = ({ palette, onDragStart, onDrop, isDraggingOver, copyColor, 
             >
                 <Eye size={16} />
             </button>
+            
+            {isCustom && (
+                <button 
+                    onClick={(e) => {
+                        e.stopPropagation();
+                        onDelete(palette.id);
+                    }}
+                    className="p-2 bg-white/90 dark:bg-black/60 backdrop-blur-md rounded-full text-red-500 hover:bg-red-50 dark:hover:bg-red-900/30 shadow-lg hover:scale-110 active:scale-95 transition-all"
+                    title="Delete"
+                >
+                    <Trash2 size={16} />
+                </button>
+            )}
         </div>
       </div>
 
@@ -678,6 +705,7 @@ export default function App() {
   const [showIntro, setShowIntro] = useState(true);
   const [logoColor, setLogoColor] = useState(null);
   const [breedingData, setBreedingData] = useState(null);
+  const [deletedPaletteData, setDeletedPaletteData] = useState(null);
   
   const resultsRef = useRef(null);
 
@@ -717,6 +745,7 @@ export default function App() {
         result = result.filter(p => {
             if (activeFilter === 'Trending') return p.likes > 800;
             if (activeFilter === 'New') return parseInt(p.id) > 1000;
+            if (activeFilter === 'Custom') return p.tags && (p.tags.includes('custom') || p.tags.includes('mixed'));
             if (activeFilter === 'Dark Mode') {
                  const darkCount = p.colors.filter(c => getLuminance(c) < 0.5).length;
                  return darkCount >= 2;
@@ -853,6 +882,34 @@ export default function App() {
       setToastMsg(`Palette "${newPalette.name}" created!`);
   };
 
+  const handleDelete = (id) => {
+    const paletteToDelete = palettes.find(p => p.id === id);
+    if (!paletteToDelete) return;
+
+    // Filter out
+    setPalettes(prev => prev.filter(p => p.id !== id));
+    
+    // Store for undo
+    setDeletedPaletteData(paletteToDelete);
+    
+    // Show Toast with Undo
+    setToastMsg({
+        text: `Deleted "${paletteToDelete.name}"`,
+        duration: 7000,
+        action: {
+            label: "Undo",
+            icon: RotateCcw,
+            onClick: () => handleUndo(paletteToDelete)
+        }
+    });
+  };
+
+  const handleUndo = (palette) => {
+    setPalettes(prev => [palette, ...prev]);
+    setDeletedPaletteData(null);
+    setToastMsg(null); // Close toast immediately
+  };
+
   return (
     <div className={`min-h-screen transition-colors duration-500 ${darkMode ? 'bg-[#0f1115] text-gray-100' : 'bg-slate-50 text-slate-900'} font-sans selection:bg-indigo-500 selection:text-white overflow-x-hidden`}>
       
@@ -875,7 +932,7 @@ export default function App() {
              </div>
 
             <div className="hidden lg:flex items-center gap-1">
-                {['All', 'Trending', 'Neon', 'Pastel'].map(link => (
+                {['All', 'Trending', 'Neon', 'Pastel', 'Custom'].map(link => (
                     <button 
                         key={link} 
                         onClick={() => setActiveFilter(link)}
@@ -937,7 +994,7 @@ export default function App() {
             
             {/* Functional Filter Pills */}
             <div className="flex flex-wrap justify-center gap-3">
-               {['All', 'Trending', 'Neon', 'Pastel', 'Dark Mode', 'Nature'].map((filter, i) => (
+               {['All', 'Trending', 'Neon', 'Pastel', 'Custom', 'Dark Mode', 'Nature'].map((filter, i) => (
                   <button 
                     key={filter}
                     onClick={() => setActiveFilter(filter)}
@@ -988,6 +1045,7 @@ export default function App() {
                             copyColor={handleCopy}
                             onLike={handleLike}
                             onView={setViewingPalette}
+                            onDelete={handleDelete}
                         />
                     </div>
                 ))
@@ -1050,7 +1108,12 @@ export default function App() {
       )}
 
       {toastMsg && (
-        <Toast message={toastMsg} onClose={() => setToastMsg(null)} />
+        <Toast 
+            message={typeof toastMsg === 'string' ? toastMsg : toastMsg.text} 
+            duration={typeof toastMsg === 'string' ? 3000 : (toastMsg.duration || 3000)}
+            action={typeof toastMsg === 'string' ? null : toastMsg.action}
+            onClose={() => setToastMsg(null)} 
+        />
       )}
 
       {/* Animations CSS */}
