@@ -1185,16 +1185,6 @@ export default function App() {
                  </button>
              </div>
          )}
-
-         {/* Footer */}
-         <footer className="mt-16 mb-8 text-center">
-            <p className="text-2xl md:text-4xl font-bold text-gray-300 dark:text-gray-700 transition-colors duration-300 hover:text-gray-400 dark:hover:text-gray-600">
-                Made with <span 
-                    className="text-red-500 transition-colors duration-300 cursor-pointer inline-block hover:scale-125 transform active:scale-95"
-                    onMouseEnter={(e) => e.target.style.color = getRandomColor()}
-                >❤️</span> by Undrstanding
-            </p>
-         </footer>
       </div>
 
       {/* Modals & Overlays */}
